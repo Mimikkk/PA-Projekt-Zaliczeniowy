@@ -30,10 +30,10 @@ class App(object):
             "eta_T": 0.9,
 
             "u_min": 0,
-            "u_max": 1000000,
+            "u_max": 1_000,
 
             "P_init": 0,
-            "P_dest": 1_000,
+            "P_dest": 5600_000,
             "ro": 1000,
 
             "kp": 0.00015,

@@ -16,6 +16,9 @@ class ControlSystem(object):
                  P_dest: float,
                  beta: float,
 
+                 u_min: float,
+                 u_max: float,
+
                  t: float,
                  Tp: float,
                  kp: float,
@@ -88,11 +91,8 @@ class ControlSystem(object):
         self.__Ti: float = Ti
         self.__Td: float = Td
 
-        self.__P_min: float = 0
-        self.__P_max: float = 1
-
-        self.__u_min: float = 0
-        self.__u_max: float = 1
+        self.__u_min: float = u_min
+        self.__u_max: float = u_max
 
         # Computed Data
         self.__data: Dict[str, List[float]] = {
