@@ -1,30 +1,5 @@
 from imports import *
 
-config = {
-    "t": 5000,
-    "Tp": 0.1,
-    "Ti": 0.25,
-    "Td": 0.01,
-
-    "g": 10,
-    "L": 200,
-    "A": 0.01,
-    "K": 1,
-    "eta_T": 0.9,
-
-    "u_min": 0,
-    "u_max": 1000000,
-
-    "P_init": 0,
-    "P_dest": 1_000_000,
-    "ro": 1000,
-
-    "kp": 0.015,
-    "beta": 0.035,
-    # "iteration_limit": 100_000,
-    "save_tolerance": 0.001
-}
-
 
 class ControlSystem(object):
     def __init__(self,
@@ -117,11 +92,11 @@ class ControlSystem(object):
         self.__P_max: float = 1
 
         self.__u_min: float = 0
-        self.__u_max: float = 0.000001
+        self.__u_max: float = 1
 
         # Computed Data
         self.__data: Dict[str, List[float]] = {
-            "P": [0], "e": [0], "u": [0], "S": [0], "H": [0], "Q": [0], "H_loss": [0], "delta_H": [0],
+            "t": [0], "P": [0], "e": [0], "u": [0], "S": [0], "H": [0], "Q": [0], "H_loss": [0], "delta_H": [0],
         }
 
         self.__helpers: Dict[str, float] = {
@@ -135,8 +110,8 @@ class ControlSystem(object):
         # self.__iteration: int = 0
         # self.__iteration_limit: int = iteration_limit
         self.__save_tolerance: float = save_tolerance
-        self.__remaining_cycles: int = int(self.__t / self.__Tp)
-
+        self.__remaining_cycles: int = 100000
+        self.__iteration_count: int = 0
         # Calculate Data
         self.__init_control_flow()
         self.__finalize_data()
@@ -144,15 +119,14 @@ class ControlSystem(object):
     def __init_control_flow(self):
         while not self.__should_terminate():
             self.__process_step()
-            print([(k, self.__data[k][-1]) for k in self.__data.keys()])
-            print(self.__helpers.items())
 
     def __process_step(self):
+        self.__data["t"].append(self.__iteration_count)
+
         self.__data["e"].append(self.__find_control_difference())
         self.__helpers["sum_e"] += self.__data["e"][-1]
 
         self.__data["u"].append(self.__find_steer())
-
         self.__data["delta_H"].append(self.__find_pressure_difference())
         self.__data["H"].append(self.__find_pressure())
         self.__data["S"].append(self.__find_cross_section())
@@ -165,15 +139,11 @@ class ControlSystem(object):
         return self.P_dest - self.__data["P"][-1]
 
     def __find_steer(self) -> float:
-
         h = self.__data["e"][-1]
         f = self.__helpers["Tp/Ti"] * self.__helpers["sum_e"]
         g = self.__helpers["Td/Tp"] * (self.__data["e"][-1] - self.__data["e"][-2])
-
         e = self.__kp * (h + f + g)
         k = max(self.__u_min, min(self.__u_max, e))
-        print(h,f,g)
-        print(k, e)
         return k
 
     def __find_cross_section(self):
@@ -187,7 +157,7 @@ class ControlSystem(object):
 
     def __find_pressure_difference(self):
         if self.__data["S"][-1] == 0: return 0
-        return -self.__helpers["L/g"] / self.__data["S"][-1] * self.__data["e"][-1]
+        return -self.__helpers["L/g"] / self.__data["S"][-1] * (self.__data["Q"][-1] - self.__data["Q"][-2])
 
     def __find_pressure(self):
         return self.H_H + self.__data["delta_H"][-1] - self.__data["H_loss"][-1]
@@ -197,6 +167,7 @@ class ControlSystem(object):
 
     def __should_terminate(self) -> bool:
         self.__remaining_cycles -= 1
+        self.__iteration_count += 1
         return 0 >= self.__remaining_cycles
 
     # Convert into DataFrame
@@ -206,15 +177,16 @@ class ControlSystem(object):
             self.dataframe['H'].mul(1 / self.__save_tolerance).round()).max().reset_index(drop=True)
         self.dataframe = pd.concat(
             [pd.DataFrame.from_dict(
-                {"H_loss": [0], "e": [self.P_init], "u": [0], "delta_H": [0], "H": [0], "S": [0], "Q": [0]}),
+                {"t": [0], "H_loss": [0], "e": [self.P_init], "u": [0], "delta_H": [0], "H": [0], "S": [0], "Q": [0]}),
                 self.dataframe])
 
         # self.dataframe.rename(
         #     columns={
+        #         "t": "Czas",
         #         "H": "Poziom Wody [m]",
         #         "S": "Wielkość Sterująca [-]",
         #         "e": "Uchyb [m]",
         #         "Q": "Wpływ Wody [m^3/s]",
         #         "P": "Wypływ Wody [m^3/s]"},
-        # inplace=True)
+        #     inplace=True)
         self.dataframe = self.dataframe.round(round(np.log10(int(1 / self.__save_tolerance))))

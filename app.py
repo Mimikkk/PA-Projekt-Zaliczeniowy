@@ -2,7 +2,7 @@ from dash_bootstrap_components import Input
 from dash_html_components import Output
 
 from imports import *
-from process import ControlSystem
+from processII import ControlSystem
 from dash.dependencies import Input, Output, State, MATCH, ALL
 import plotly.express as px
 
@@ -18,29 +18,53 @@ class App(object):
 
         # Containers for Data Frames and Figures
         self.default_config: Dict[str, Union[int, float]] = {
-            # Kontrola Symulacji
-            "h_init": 0,  # Poziom Wody
-            "h_dest": 1.5,  # #### #### ##
-            "h_min": 0,  # #### #### ####
-            "h_max": 10,  # #### #### ####
-            "Qd_min": 0,  # Natężenie dopływu
-            "Qd_max": 0.05,  # #### #### ####
+            "t": 5000,
+            "Tp": 0.1,
+            "Ti": 0.25,
+            "Td": 0.01,
 
-            # Środowisko Symulacji
-            "u_min": 0,  # Wielkość sterująca
-            "u_max": 10,  # #### #### #### ##
-            "A": 2,  # Przekrój poprzeczny
-            "kp": 0.0015,  # Wzmocnienie Regulatora
-            "beta": 0.035,  # Współczynnik wypływu
-            # Czas i Zapis
-            "t": 5000,  # Czas
-            "Tp": 0.1,  # ####
-            "Ti": 0.25,  # ###
-            "Td": 0.01,  # ###
-            "save_tolerance": 0.001,  # Tolerancja zapisu
+            "g": 10,
+            "L": 10,
+            "A": 0.01,
+            "K": 1,
+            "eta_T": 0.9,
 
-            "iteration_limit": 100_000,
+            "u_min": 0,
+            "u_max": 1000000,
+
+            "P_init": 0,
+            "P_dest": 1_000,
+            "ro": 1000,
+
+            "kp": 0.00015,
+            "beta": 0.00035,
+            # "iteration_limit": 100_000,
+            "save_tolerance": 0.001
         }
+        #     {
+        #     # Kontrola Symulacji
+        #     "P_init": 0,  # Poziom Wody
+        #     "h_dest": 1.5,  # #### #### ##
+        #     "h_min": 0,  # #### #### ####
+        #     "h_max": 10,  # #### #### ####
+        #     "Qd_min": 0,  # Natężenie dopływu
+        #     "Qd_max": 0.05,  # #### #### ####
+        #
+        #     # Środowisko Symulacji
+        #     "u_min": 0,  # Wielkość sterująca
+        #     "u_max": 10,  # #### #### #### ##
+        #     "A": 2,  # Przekrój poprzeczny
+        #     "kp": 0.0015,  # Wzmocnienie Regulatora
+        #     "beta": 0.035,  # Współczynnik wypływu
+        #     # Czas i Zapis
+        #     "t": 5000,  # Czas
+        #     "Tp": 0.1,  # ####
+        #     "Ti": 0.25,  # ###
+        #     "Td": 0.01,  # ###
+        #     "save_tolerance": 0.001,  # Tolerancja zapisu
+        #
+        #     "iteration_limit": 100_000,
+        # }
 
         self.chart_configs: Dict[str, Dict] = dict()
         self.active_config: Dict[str, Union[int, float]] = self.default_config.copy()
@@ -168,19 +192,19 @@ class App(object):
                 dbc.Card([
                     html.H6('Poziom początkowy [m]', style={'textAlign': 'center'}),
                     dcc.Slider(tooltip={'placement': 'bottom'},
-                               id={'type': 'dynamic-parameter', 'index': 'h_init'},
-                               value=self.default_config['h_init'],
+                               id={'type': 'dynamic-parameter', 'index': 'P_init'},
+                               value=self.default_config['P_init'],
                                min=0,
-                               max=self.default_config['h_init'],
+                               max=self.default_config['P_init'],
                                step=0.01),
                 ], id={"type": "araara", "index": "ara"}),
                 dbc.Card([
                     html.H6('Poziom oczekiwany  [m]', style={'textAlign': 'center'}),
                     dcc.Slider(tooltip={'placement': 'bottom'},
-                               id={'type': 'dynamic-parameter', 'index': 'h_dest'},
-                               value=self.default_config['h_dest'],
+                               id={'type': 'dynamic-parameter', 'index': 'P_dest'},
+                               value=self.default_config['P_dest'],
                                min=0,
-                               max=self.default_config['h_dest'],
+                               max=self.default_config['P_dest'],
                                step=0.01),
                 ]),
                 dbc.Card([
@@ -204,8 +228,8 @@ class App(object):
                                     step=0.01),
                 ]),
 
-                #         f"Poziom początkowy: {data['h_initial']} [m]",
-                #         f"Poziom oczekiwany: {data['h_dest']} [m]",
+                #         f"Poziom początkowy: {data['P_initial']} [m]",
+                #         f"Poziom oczekiwany: {data['P_dest']} [m]",
                 #         f"Limit poziomu: od {data['h_min']} do {data['h_max']} [m]",
                 #         f"Limit dopływu: od {data['Qd_min']} do {data['Qd_max']} [m^3]",
             ])
@@ -354,20 +378,20 @@ class App(object):
         title = "Woda od czasu"
         fig = go.Figure()
         for (name, df) in self.dataframes.items():
-            fig.add_trace(go.Scatter(x=df['t'], y=df['h'], mode='lines+markers', name=f"{name}-Poziom Wody"))
+            fig.add_trace(go.Scatter(x=df['t'], y=df['P'], mode='lines+markers', name=f"{name}-Poziom Wody"))
         fig.add_shape(type="line",
                       x0=0,
-                      y0=self.active_config['h_dest'],
+                      y0=self.active_config['P_dest'],
                       x1=self.active_config['t'],
-                      y1=self.active_config['h_dest'])
+                      y1=self.active_config['P_dest'])
         figures.append(dcc.Graph(figure=fig))
 
         # Poziom Wpływ wypływ
         title = "Wpływ wypływ od czasu"
         fig = go.Figure()
         for (name, df) in self.dataframes.items():
-            fig.add_trace(go.Scatter(x=df['t'], y=df['Qd'], mode='lines+markers', name=f"{name}-Wpływ"))
-            fig.add_trace(go.Scatter(x=df['t'], y=df['Qo'], mode='lines+markers', name=f"{name}-Odpływ"))
+            fig.add_trace(go.Scatter(x=df['t'], y=df['Q'], mode='lines+markers', name=f"{name}-Wpływ"))
+            fig.add_trace(go.Scatter(x=df['t'], y=df['S'], mode='lines+markers', name=f"{name}-Odpływ"))
         figures.append(dcc.Graph(figure=fig))
 
         # Poziom Napięcie sterujące
@@ -381,22 +405,8 @@ class App(object):
         title = "Wpływ od sterującej"
         fig = go.Figure()
         for (name, df) in self.dataframes.items():
-            fig.add_trace(go.Scatter(x=df['u'], y=df['Qd'], mode='lines+markers', name=f"{name}-Wpływ"))
+            fig.add_trace(go.Scatter(x=df['u'], y=df['Q'], mode='lines+markers', name=f"{name}-Wpływ"))
         figures.append(dcc.Graph(figure=fig))
-        # f1.line(time, Qd, legend_label='Qd(t)')
-        # f1.line(time, Qo, legend_label='Qo(t)')
-        # x_axis_label = 'Czas regulacji t [s]'
-        # y_axis_label = 'Poziom wody w naczyniu h [m]'
-        # title = 'Docelowy i aktualny poziom wody'
-        # f2.line(time, [h_dest for _ in range(simulation_cycles)], color=palette[0], legend_label='h*(t)')
-        # f2.line(time, h[:-1], legend_label='h(t)')
-        #
-        # x_axis_label = 'Napięcie sterujące u [V]',
-        # y_axis_label = 'Natężenie dopływu Qd(u) [m^3 / s]',
-        # title = 'Natężenie dopływu w zależności od sygnału sterującego'
-        # legend_label = 'Qd(u)'
-        # f3.line(u, Qd, )
-        #
         return [self.config_cards, figures]
 
     def __controller_sidebar_buttons(self, chart_count, btn1, btn2, selected_chart):
@@ -448,19 +458,19 @@ class App(object):
     def __config_string(data: dict):
         return list(map(lambda x: html.H6(x), [
             f"Środowisko Symulacji",
-            f"Poziom początkowy: {data['h_init']} [m]",
-            f"Poziom oczekiwany: {data['h_dest']} [m]",
-            f"Limit poziomu: od {data['h_min']} do {data['h_max']} [m]",
-            f"Limit dopływu: od {data['Qd_min']} do {data['Qd_max']} [m^3]",
+            f"Poziom początkowy: {data['P_init']} [m]",
+            f"Poziom oczekiwany: {data['P_dest']} [m]",
+            # f"Limit poziomu: od {data['h_min']} do {data['h_max']} [m]",
+            # f"Limit dopływu: od {data['Qd_min']} do {data['Qd_max']} [m^3]",
             f"Kontrola Symulacji",
-            f"Limit wielkości sterującej: od {data['u_min']} do {data['u_max']}",
-            f"Przekrój poprzeczny zbiornika: {data['A']} [m^2]",
-            f"Wzmocnienie Regulatora: {data['kp']} [-]",
-            f"Współczynnik wypływu: {data['beta']} [s^{{5/2}}/s]",
-            f"Czas i Zapis",
-            f"Okres symulacji: {data['t']} [s]",
-            f"Okres Wyprzedzenia: {data['Ti']} [s]",
-            f"Okres Zdwojenia: {data['Td']} [s]",
-            f"Częstotliwość Próbkowania: {data['Tp']} [1/s]",
-            f"Tolerancja zapisu: {data['save_tolerance']} [-]",
+            # f"Limit wielkości sterującej: od {data['u_min']} do {data['u_max']}",
+            # f"Przekrój poprzeczny zbiornika: {data['A']} [m^2]",
+            # f"Wzmocnienie Regulatora: {data['kp']} [-]",
+            # f"Współczynnik wypływu: {data['beta']} [s^{{5/2}}/s]",
+            # f"Czas i Zapis",
+            # f"Okres symulacji: {data['t']} [s]",
+            # f"Okres Wyprzedzenia: {data['Ti']} [s]",
+            # f"Okres Zdwojenia: {data['Td']} [s]",
+            # f"Częstotliwość Próbkowania: {data['Tp']} [1/s]",
+            # f"Tolerancja zapisu: {data['save_tolerance']} [-]",
         ]))

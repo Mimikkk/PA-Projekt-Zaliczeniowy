@@ -1,6 +1,6 @@
 from app import App
 # from process import ControlSystem
-from processII import ControlSystem, config
+# from processII import ControlSystem, config
 
 if __name__ == '__main__':
     # config = {
@@ -23,5 +23,5 @@ if __name__ == '__main__':
     #     "save_tolerance": 0.001
     # }
 
-    print(ControlSystem(**config).dataframe)
-    # App().run_server(debug=True)
+    # print(ControlSystem(**config).dataframe)
+    App().run_server(debug=True)
