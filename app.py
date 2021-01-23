@@ -373,17 +373,13 @@ class App(object):
         if not self.dataframes: return [self.config_cards, None]
 
         figures = []
+        # Tutaj tworzycie wyresy jakie chcecie według tych schematow na dole ⬇
 
         # Poziom Wody
         title = "Woda od czasu"
         fig = go.Figure()
         for (name, df) in self.dataframes.items():
             fig.add_trace(go.Scatter(x=df['t'], y=df['P'], mode='lines+markers', name=f"{name}-Poziom Wody"))
-        fig.add_shape(type="line",
-                      x0=0,
-                      y0=self.active_config['P_dest'],
-                      x1=self.active_config['t'],
-                      y1=self.active_config['P_dest'])
         figures.append(dcc.Graph(figure=fig))
 
         # Poziom Wpływ wypływ
