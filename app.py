@@ -374,7 +374,7 @@ class App(object):
 
         figures = []
         # Tutaj tworzycie wyresy jakie chcecie według tych schematow na dole ⬇
-
+        # {"t": [0], "H_loss": [0], "e": [self.P_init], "u": [0], "delta_H": [0], "H": [0], "S": [0], "Q": [0]}
         # Poziom Wody
         title = "Woda od czasu"
         fig = go.Figure()
