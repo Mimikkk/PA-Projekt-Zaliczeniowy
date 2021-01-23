@@ -1,6 +1,5 @@
 from imports import *
 
-
 class ControlSystem(object):
     def __init__(self,
                  g: float,
@@ -96,21 +95,20 @@ class ControlSystem(object):
 
         # Computed Data
         self.__data: Dict[str, List[float]] = {
-            "t": [0], "P": [0], "e": [0], "u": [0], "S": [0], "H": [0], "Q": [0], "H_loss": [0], "delta_H": [0],
+            "Mm": [0], "t": [0], "P": [0], "e": [0], "u": [0], "S": [0], "H": [0], "Q": [0], "H_loss": [0], "delta_H": [0],
         }
 
         self.__helpers: Dict[str, float] = {
             "Tp/Ti": self.__Tp / self.__Ti or 0, "Td/Tp": self.__Td / self.__Ti or 0, "sum_e": 0,
-            "Qd_lim/u_lim": 0, "L/g": self.L / self.g,
+            "Qd_lim/u_lim": 0, "L/g": self.L / self.g, "t/Tp": t/Tp,
             "previous_save": 0, "root(2gL)": np.sqrt(2 * self.g * self.L),
             "geta_T": self.g * self.eta_T,
             "AKL": self.A * self.K * self.L,
         }
-
         # self.__iteration: int = 0
         # self.__iteration_limit: int = iteration_limit
         self.__save_tolerance: float = save_tolerance
-        self.__remaining_cycles: int = 100000
+        self.__remaining_cycles: int = int(self.__helpers['t/Tp'])  # 100000
         self.__iteration_count: int = 0
         # Calculate Data
         self.__init_control_flow()
@@ -121,7 +119,7 @@ class ControlSystem(object):
             self.__process_step()
 
     def __process_step(self):
-        self.__data["t"].append(self.__iteration_count)
+        self.__data["t"].append(self.__iteration_count * self.__Tp)
 
         self.__data["e"].append(self.__find_control_difference())
         self.__helpers["sum_e"] += self.__data["e"][-1]
@@ -133,6 +131,7 @@ class ControlSystem(object):
 
         self.__data["H_loss"].append(self.__find_pressure_loss())
         self.__data["Q"].append(self.__find_flow_rate())
+        self.__data["Mm"].append(self.__find_motor_power())
         self.__data["P"].append(self.__quantitize_power())
 
     def __find_control_difference(self) -> float:
@@ -153,7 +152,7 @@ class ControlSystem(object):
         return self.__data["S"][-1] * self.__helpers["root(2gL)"]
 
     def __find_pressure_loss(self):
-        return self.__helpers["AKL"] * self.__data["Q"][-1] ** 2
+        return self.__helpers["AKL"] * np.square(self.__data["Q"][-1])
 
     def __find_pressure_difference(self):
         if self.__data["S"][-1] == 0: return 0
@@ -162,7 +161,12 @@ class ControlSystem(object):
     def __find_pressure(self):
         return self.H_H + self.__data["delta_H"][-1] - self.__data["H_loss"][-1]
 
+    def __find_motor_power(self):
+        return (self.__data["Mm"][-1] + self.__helpers["geta_T"] * self.__data["Q"][-1] * self.__data["H"][-1]) * 0.35
+
     def __quantitize_power(self) -> float:
+        P = (self.__data["Mm"][-1] + self.__helpers["geta_T"] * self.__data["Q"][-1] * self.__data["H"][-1]) * 0.65
+        # return P
         return self.__helpers["geta_T"] * self.__data["Q"][-1] * self.__data["H"][-1]
 
     def __should_terminate(self) -> bool:
@@ -172,14 +176,13 @@ class ControlSystem(object):
 
     # Convert into DataFrame
     def __finalize_data(self):
-        self.dataframe = pd.DataFrame.from_dict(self.__data)
+        self.dataframe: pd.DataFrame = pd.DataFrame.from_dict(self.__data)
         self.dataframe = self.dataframe.groupby(
-            self.dataframe['H'].mul(1 / self.__save_tolerance).round()).max().reset_index(drop=True)
-        self.dataframe = pd.concat(
-            [pd.DataFrame.from_dict(
-                {"t": [0], "H_loss": [0], "e": [self.P_init], "u": [0], "delta_H": [0], "H": [0], "S": [0], "Q": [0]}),
-                self.dataframe])
-
+            self.dataframe['t'].mul(1 / self.__save_tolerance).round()).max().reset_index(drop=True)
+        # self.dataframe = pd.concat(
+        #     [pd.DataFrame.from_dict(
+        #         {"t": [0], "H_loss": [0], "e": [self.P_init], "u": [0], "delta_H": [0], "H": [0], "S": [0], "Q": [0]}),
+        #         self.dataframe])
         # self.dataframe.rename(
         #     columns={
         #         "t": "Czas",
@@ -189,4 +192,7 @@ class ControlSystem(object):
         #         "Q": "Wpływ Wody [m^3/s]",
         #         "P": "Wypływ Wody [m^3/s]"},
         #     inplace=True)
+
+        self.dataframe = self.dataframe.sort_values(by=['t'])
+        pd.set_option('display.max_columns', None)
         self.dataframe = self.dataframe.round(round(np.log10(int(1 / self.__save_tolerance))))

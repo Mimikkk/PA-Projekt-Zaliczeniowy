@@ -6,6 +6,30 @@ from processII import ControlSystem
 from dash.dependencies import Input, Output, State, MATCH, ALL
 import plotly.express as px
 
+config = {
+    "t": 10,  # Czas od 0 do 100
+    "Tp": 0.05,  # od 0.05 do 1
+    "Ti": 0.25,  # od 0.05 do 1
+    "Td": 0.15,  # od 0.05 do 1
+
+    "g": 9.81,   # od 1 do 25
+    "L": 10,     # od 1 do 20
+    "A": 0.1,    # od 0 do 1
+    "K": 2000,   # od 0 do 5000
+    "eta_T": 0.8, # od 0 do 1
+    "ro": 789,  # od 600 do 1400
+
+    "u_min": 0,   # od 0 do n
+    "u_max": 185,   # od n do 200
+
+    "P_init": 0,    # od 0 do n
+    "P_dest": 1_000,  # od n do 1_000_000
+
+    "kp": 0.00015, # od 0.0001 do 0.005
+    "beta": 0.00025, # od 0.001 do 0.05
+    # "iteration_limit": 100_000,
+    "save_tolerance": 0.000001 # od 0.0001 do 0.1
+}
 
 class App(object):
     def __init__(self):
@@ -17,54 +41,7 @@ class App(object):
         self.colors = dict(zip(color_names, px.colors.qualitative.Pastel))
 
         # Containers for Data Frames and Figures
-        self.default_config: Dict[str, Union[int, float]] = {
-            "t": 5000,
-            "Tp": 0.1,
-            "Ti": 0.25,
-            "Td": 0.01,
-
-            "g": 10,
-            "L": 10,
-            "A": 0.01,
-            "K": 1,
-            "eta_T": 0.9,
-
-            "u_min": 0,
-            "u_max": 1_000,
-
-            "P_init": 0,
-            "P_dest": 5600_000,
-            "ro": 1000,
-
-            "kp": 0.00015,
-            "beta": 0.00035,
-            # "iteration_limit": 100_000,
-            "save_tolerance": 0.001
-        }
-        #     {
-        #     # Kontrola Symulacji
-        #     "P_init": 0,  # Poziom Wody
-        #     "h_dest": 1.5,  # #### #### ##
-        #     "h_min": 0,  # #### #### ####
-        #     "h_max": 10,  # #### #### ####
-        #     "Qd_min": 0,  # Natężenie dopływu
-        #     "Qd_max": 0.05,  # #### #### ####
-        #
-        #     # Środowisko Symulacji
-        #     "u_min": 0,  # Wielkość sterująca
-        #     "u_max": 10,  # #### #### #### ##
-        #     "A": 2,  # Przekrój poprzeczny
-        #     "kp": 0.0015,  # Wzmocnienie Regulatora
-        #     "beta": 0.035,  # Współczynnik wypływu
-        #     # Czas i Zapis
-        #     "t": 5000,  # Czas
-        #     "Tp": 0.1,  # ####
-        #     "Ti": 0.25,  # ###
-        #     "Td": 0.01,  # ###
-        #     "save_tolerance": 0.001,  # Tolerancja zapisu
-        #
-        #     "iteration_limit": 100_000,
-        # }
+        self.default_config: Dict[str, Union[int, float]] = config
 
         self.chart_configs: Dict[str, Dict] = dict()
         self.active_config: Dict[str, Union[int, float]] = self.default_config.copy()
@@ -145,7 +122,7 @@ class App(object):
                 options=[{'label': 'Jeden', 'value': 1},
                          {'label': 'Dwa', 'value': 2},
                          {'label': 'Trzy', 'value': 3}],
-                value=None,
+                value=1,
                 inline=True,
                 style={'margin': 'auto'})]),
             dcc.Tabs(id='tabs-config-picker', style=TAB_STYLE),
@@ -190,93 +167,101 @@ class App(object):
         if active_page == "environment":
             return html.Div([
                 dbc.Card([
-                    html.H6('Poziom początkowy [m]', style={'textAlign': 'center'}),
-                    dcc.Slider(tooltip={'placement': 'bottom'},
-                               id={'type': 'dynamic-parameter', 'index': 'P_init'},
-                               value=self.default_config['P_init'],
-                               min=0,
-                               max=self.default_config['P_init'],
-                               step=0.01),
-                ], id={"type": "araara", "index": "ara"}),
-                dbc.Card([
-                    html.H6('Poziom oczekiwany  [m]', style={'textAlign': 'center'}),
+                    html.H6('Poziom oczekiwany  [W]', style={'textAlign': 'center'}),
                     dcc.Slider(tooltip={'placement': 'bottom'},
                                id={'type': 'dynamic-parameter', 'index': 'P_dest'},
                                value=self.default_config['P_dest'],
                                min=0,
-                               max=self.default_config['P_dest'],
+                               max=5_000_000,
                                step=0.01),
                 ]),
                 dbc.Card([
-                    html.H6('Limit poziomu [m]', style={'textAlign': 'center'}),
-                    dcc.RangeSlider(tooltip={'placement': 'bottom'},
-                                    id={'type': 'dynamic-parameter', 'index': 'h_lim'},
-                                    allowCross=False,
-                                    min=self.default_config['h_min'],
-                                    max=self.default_config['h_max'],
-                                    value=[self.default_config['h_min'], self.default_config['h_max']],
-                                    step=0.01),
+                    html.H6('Stała grawitacyjna [m/s^2]', style={'textAlign': 'center'}),
+                    dcc.Slider(tooltip={'placement': 'bottom'},
+                               id={'type': 'dynamic-parameter', 'index': 'g'},
+                               value=self.default_config['g'],
+                               min=1,
+                               max=20,
+                               step=0.05),
                 ]),
                 dbc.Card([
-                    html.H6('Limit dopływu [m^3]', style={'textAlign': 'center'}),
-                    dcc.RangeSlider(tooltip={'placement': 'bottom'},
-                                    id={'type': 'dynamic-parameter', 'index': 'Qd_lim'},
-                                    allowCross=False,
-                                    min=self.default_config['Qd_min'],
-                                    max=self.default_config['Qd_max'],
-                                    value=[self.default_config['Qd_min'], self.default_config['Qd_max']],
-                                    step=0.01),
+                    html.H6('Długośc rury [m]', style={'textAlign': 'center'}),
+                    dcc.Slider(tooltip={'placement': 'bottom'},
+                               id={'type': 'dynamic-parameter', 'index': 'L'},
+                               value=self.default_config['L'],
+                               min=1,
+                               max=20,
+                               step=1),
+                ]),
+                dbc.Card([
+                    html.H6('Sprawność Turbiny [-]', style={'textAlign': 'center'}),
+                    dcc.Slider(tooltip={'placement': 'bottom'},
+                               id={'type': 'dynamic-parameter', 'index': 'eta_T'},
+                               value=self.default_config['eta_T'],
+                               min=0,
+                               max=1,
+                               step=0.01),
                 ]),
 
-                #         f"Poziom początkowy: {data['P_initial']} [m]",
-                #         f"Poziom oczekiwany: {data['P_dest']} [m]",
-                #         f"Limit poziomu: od {data['h_min']} do {data['h_max']} [m]",
-                #         f"Limit dopływu: od {data['Qd_min']} do {data['Qd_max']} [m^3]",
+                dbc.Card([
+                    html.H6('Gestość Cieczy [kg/m^3]', style={'textAlign': 'center'}),
+                    dcc.Slider(tooltip={'placement': 'bottom'},
+                               id={'type': 'dynamic-parameter', 'index': 'ro'},
+                               value=self.default_config['ro'],
+                               min=600,
+                               max=1400,
+                               step=5),
+                ]),
+
             ])
         if active_page == "control":
             return html.Div([
                 dbc.Card([
-                    html.H6('Limit wielkości sterującej [-]', style={'textAlign': 'center'}),
+                    html.H6('Limity Sterowania [-]', style={'textAlign': 'center'}),
                     dcc.RangeSlider(tooltip={'placement': 'bottom'},
                                     id={'type': 'dynamic-parameter', 'index': 'u_lim'},
                                     allowCross=False,
-                                    min=self.default_config['u_min'],
-                                    max=self.default_config['u_max'],
                                     value=[self.default_config['u_min'], self.default_config['u_max']],
+                                    min=0,
+                                    max=400,
                                     step=0.01),
                 ]),
                 dbc.Card([
-                    html.H6('Przekrój poprzeczny zbiornika [m^2]', style={'textAlign': 'center'}),
+                    html.H6('Współczynnik tarcia o rurę [m^2]', style={'textAlign': 'center'}),
                     dcc.Slider(tooltip={'placement': 'bottom'},
                                id={'type': 'dynamic-parameter', 'index': 'A'},
                                value=self.default_config['A'],
                                min=0,
-                               max=self.default_config['A'],
+                               max=1,
                                step=0.01),
+                ]),
+                dbc.Card([
+                    html.H6('Korekta tarcia o rurę [-]', style={'textAlign': 'center'}),
+                    dcc.Slider(tooltip={'placement': 'bottom'},
+                               id={'type': 'dynamic-parameter', 'index': 'K'},
+                               value=self.default_config['K'],
+                               min=1,
+                               max=500,
+                               step=1),
                 ]),
                 dbc.Card([
                     html.H6('Wzmocnienie Regulatora [-]', style={'textAlign': 'center'}),
                     dcc.Slider(tooltip={'placement': 'bottom'},
                                id={'type': 'dynamic-parameter', 'index': 'kp'},
                                value=self.default_config['kp'],
-                               min=0,
-                               max=self.default_config['kp'],
-                               step=0.01),
+                               min=0.005,
+                               max=0.5,
+                               step=0.005),
                 ]),
                 dbc.Card([
                     html.H6('Współczynnik wypływu [s^{5/2}/s]', style={'textAlign': 'center'}),
                     dcc.Slider(tooltip={'placement': 'bottom'},
                                id={'type': 'dynamic-parameter', 'index': 'beta'},
                                value=self.default_config['beta'],
-                               min=0,
-                               max=self.default_config['beta'],
-                               step=0.01),
+                               min=0.00005,
+                               max=0.0001,
+                               step=0.000005),
                 ]),
-                #         f"Limit wielkości sterującej: od {data['u_min']} do {data['u_max']}",
-                #         f"Przekrój poprzeczny zbiornika: {data['A']} [m^2]",
-                #         f"Wzmocnienie Regulatora: {data['kp']} [-]",
-                #         f"Współczynnik wypływu: {data['beta']} [s^{{5/2}}/s]",
-
             ])
         if active_page == "time_other":
             return html.Div([
@@ -286,8 +271,8 @@ class App(object):
                                id={'type': 'dynamic-parameter', 'index': 't'},
                                value=self.default_config['t'],
                                min=0,
-                               max=self.default_config['t'],
-                               step=0.01)
+                               max=100,
+                               step=1)
                 ]),
                 dbc.Card([
                     html.H6('Okres Wyprzedzenia [s]', style={'textAlign': 'center'}),
@@ -295,7 +280,7 @@ class App(object):
                                id={'type': 'dynamic-parameter', 'index': 'Ti'},
                                value=self.default_config['Ti'],
                                min=0,
-                               max=self.default_config['Ti'],
+                               max=1,
                                step=0.01),
                 ]),
                 dbc.Card([
@@ -304,7 +289,7 @@ class App(object):
                                id={'type': 'dynamic-parameter', 'index': "Td"},
                                value=self.default_config['Td'],
                                min=0,
-                               max=self.default_config['Td'],
+                               max=1,
                                step=0.01),
                 ]),
                 dbc.Card([
@@ -313,7 +298,7 @@ class App(object):
                                id={'type': 'dynamic-parameter', 'index': 'Tp'},
                                value=self.default_config['Tp'],
                                min=0,
-                               max=self.default_config['Tp'],
+                               max=1,
                                step=0.01),
                 ]),
                 dbc.Card([
@@ -321,15 +306,10 @@ class App(object):
                     dcc.Slider(tooltip={'placement': 'bottom'},
                                id={'type': 'dynamic-parameter', 'index': 'save_tolerance'},
                                value=self.default_config['save_tolerance'],
-                               min=0,
-                               max=self.default_config['save_tolerance'],
+                               min=0.01,
+                               max=1,
                                step=0.01),
                 ]),
-                #         f"Okres symulacji: {data['t']} [s]",
-                #         f"Okres Wyprzedzenia: {data['Ti']} [s]",
-                #         f"Okres Zdwojenia: {data['Td']} [s]",
-                #         f"Częstotliwość Próbkowania: {data['Tp']} [1/s]",
-                #         f"Tolerancja zapisu: {data['save_tolerance']} [-]",
             ])
         return html.Div()
 
@@ -373,11 +353,13 @@ class App(object):
         if not self.dataframes: return [self.config_cards, None]
 
         figures = []
+
         # Tutaj tworzycie wyresy jakie chcecie według tych schematow na dole ⬇
         # {"t": [0], "H_loss": [0], "e": [self.P_init], "u": [0], "delta_H": [0], "H": [0], "S": [0], "Q": [0]}
         # Poziom Wody
         title = "Woda od czasu"
         fig = go.Figure()
+        df: pd.DataFrame
         for (name, df) in self.dataframes.items():
             fig.add_trace(go.Scatter(x=df['t'], y=df['P'], mode='lines+markers', name=f"{name}-Poziom Wody"))
         figures.append(dcc.Graph(figure=fig))
@@ -454,19 +436,43 @@ class App(object):
     def __config_string(data: dict):
         return list(map(lambda x: html.H6(x), [
             f"Środowisko Symulacji",
-            f"Poziom początkowy: {data['P_init']} [m]",
-            f"Poziom oczekiwany: {data['P_dest']} [m]",
-            # f"Limit poziomu: od {data['h_min']} do {data['h_max']} [m]",
-            # f"Limit dopływu: od {data['Qd_min']} do {data['Qd_max']} [m^3]",
+            f"────────────────────",
+            f"Poziom początkowy",
+            f"{data['P_init']} [W]",
+            f"Poziom oczekiwany",
+            f"{data['P_dest']} [W]",
+            f"Sprawność Turbiny",
+            f"{data['eta_T']} [-]",
+            f"Długośc rury",
+            f"{data['L']} [m]",
+            f"Gęstość cieczy",
+            f"{data['ro']} [kg/m^3]",
+            f"Współczynnik Grawitacji",
+            f"{data['g']} [m/s^2]",
+            f"Współczynnik Tarcia rury",
+            f"{data['A']} [-]",
+            f"Korekta tarcia",
+            f"{data['K']} [W]",
+            f"────────────────────",
             f"Kontrola Symulacji",
-            # f"Limit wielkości sterującej: od {data['u_min']} do {data['u_max']}",
-            # f"Przekrój poprzeczny zbiornika: {data['A']} [m^2]",
-            # f"Wzmocnienie Regulatora: {data['kp']} [-]",
-            # f"Współczynnik wypływu: {data['beta']} [s^{{5/2}}/s]",
-            # f"Czas i Zapis",
-            # f"Okres symulacji: {data['t']} [s]",
-            # f"Okres Wyprzedzenia: {data['Ti']} [s]",
-            # f"Okres Zdwojenia: {data['Td']} [s]",
-            # f"Częstotliwość Próbkowania: {data['Tp']} [1/s]",
-            # f"Tolerancja zapisu: {data['save_tolerance']} [-]",
+            f"────────────────────",
+            f"Limit wielkości sterującej",
+            f"{data['u_min']} do {data['u_max']}",
+            f"Wzmocnienie Regulatora",
+            f"{data['kp']} [-]",
+            f"Współczynnik wypływu",
+            f"{data['beta']} [s^{{5/2}}/s]",
+            f"────────────────────",
+            f"Czas i Zapis",
+            f"────────────────────",
+            f"Okres symulacji",
+            f"{data['t']} [s]",
+            f"Częstotliwość Próbkowania",
+            f"{data['Tp']} [1/s]",
+            f"Okres Wyprzedzenia",
+            f"{data['Ti']} [s]",
+            f"Okres Zdwojenia",
+            f"{data['Td']} [s]",
+            f"Tolerancja zapisu",
+            f"{data['save_tolerance']} [-]",
         ]))
