@@ -167,7 +167,7 @@ class ControlSystem(object):
     def __quantitize_power(self) -> float:
         P = (self.__data["Mm"][-1] + self.__helpers["geta_T"] * self.__data["Q"][-1] * self.__data["H"][-1]) * 0.65
         # return P
-        return self.__helpers["geta_T"] * self.__data["Q"][-1] * self.__data["H"][-1]
+        return P
 
     def __should_terminate(self) -> bool:
         self.__remaining_cycles -= 1
